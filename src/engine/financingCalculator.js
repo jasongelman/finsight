@@ -104,18 +104,39 @@ function creditMultiplier(creditScore) {
   return 1.6;
 }
 
-const BASE_PARAMS = {
-  creditCard:         { apr: 18,   termMonths: 18 },
-  sba:                { apr: 7.5,  termMonths: 84 },
-  lineOfCredit:       { apr: 12,   termMonths: 12 },
-  mca:                { factorRate: 1.35, termMonths: 9 },
-  invoiceFactoring:   { monthlyFeeRate: 2.5, termMonths: 4 },
-  equipmentFinancing: { apr: 8,    termMonths: 48 },
-  termLoan:           { apr: 15,   termMonths: 36 },
-};
+/**
+ * Build base rate parameters anchored to live Federal Reserve data when available.
+ *
+ * Prime-linked products (SBA, LOC, equipment, term loan) use the Fed Prime Rate
+ * plus a product-specific spread that reflects typical market positioning:
+ *   SBA 7(a):           Prime + 2.5%  (SBA max spread for loans >$50K, >7yr)
+ *   Line of Credit:     Prime + 4.5%  (typical business LOC spread)
+ *   Equipment:          Prime + 1.5%  (asset-backed, lower spread)
+ *   Term Loan:          Prime + 7.5%  (unsecured, higher risk premium)
+ *
+ * Credit card rate is sourced directly from the Fed's quarterly survey
+ * (TERMCBCCALLNS) when available, reflecting the current market average.
+ *
+ * MCA factor rates and invoice factoring fees are not tracked by federal
+ * surveys; they use static industry estimates.
+ */
+function buildBaseParams(liveRates) {
+  const prime = liveRates?.prime?.value ?? 7.5;
+  const ccRate = liveRates?.creditCard?.value ?? 21.5;
 
-function getParams(id, creditScore, businessAge) {
-  const base = { ...BASE_PARAMS[id] };
+  return {
+    creditCard:         { apr: ccRate,       termMonths: 18 },
+    sba:                { apr: prime + 2.5,  termMonths: 84 },
+    lineOfCredit:       { apr: prime + 4.5,  termMonths: 12 },
+    mca:                { factorRate: 1.35,  termMonths: 9 },
+    invoiceFactoring:   { monthlyFeeRate: 2.5, termMonths: 4 },
+    equipmentFinancing: { apr: prime + 1.5,  termMonths: 48 },
+    termLoan:           { apr: prime + 7.5,  termMonths: 36 },
+  };
+}
+
+function getParams(id, creditScore, businessAge, liveRates) {
+  const base = { ...buildBaseParams(liveRates)[id] };
   const cm = creditMultiplier(creditScore);
   const ageMult = businessAge < 2 ? 1.2 : 1.0;
   if (base.apr !== undefined) {
@@ -148,7 +169,7 @@ function getEligibility(id, { creditScore, businessAge, annualRevenue, principal
 
 // ─── Master orchestrator ─────────────────────────────────────────────────────
 
-export function calculateAllOptions({ principal, annualRevenue, businessAge, creditScore }) {
+export function calculateAllOptions({ principal, annualRevenue, businessAge, creditScore }, liveRates = null) {
   const monthlyFreeCashflow = (annualRevenue * 0.15) / 12;
 
   const products = [
@@ -162,7 +183,7 @@ export function calculateAllOptions({ principal, annualRevenue, businessAge, cre
   ];
 
   const results = products.map((id) => {
-    const params = getParams(id, creditScore, businessAge);
+    const params = getParams(id, creditScore, businessAge, liveRates);
     let calc;
     switch (id) {
       case 'creditCard':

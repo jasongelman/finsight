@@ -1,6 +1,6 @@
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: '◈' },
-  { id: 'whatif',    label: 'What-If',   icon: '⊕' },
+  { id: 'strategy',  label: 'Strategy',  icon: '⊕' },
   { id: 'glossary',  label: 'Glossary',  icon: '?' },
 ];
 
