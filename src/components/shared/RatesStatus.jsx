@@ -14,7 +14,23 @@ function formatDate(dateStr) {
   }
 }
 
-export function RatesStatus({ rates, status }) {
+export function RatesStatus({ rates, status, compact }) {
+  if (compact) {
+    return (
+      <div className="rates-status-compact">
+        <span className={`rates-dot rates-dot--${status}`} />
+        {rates?.prime?.value ? (
+          <span className="rates-compact-text">
+            Prime <strong>{rates.prime.value.toFixed(2)}%</strong>
+            {rates?.creditCard?.value && ` · CC ${rates.creditCard.value.toFixed(1)}%`}
+          </span>
+        ) : (
+          <span className="rates-compact-text">{STATUS_LABELS[status] ?? '—'}</span>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="rates-status">
       <div className="rates-status-left">

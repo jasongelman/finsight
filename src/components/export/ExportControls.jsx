@@ -1,6 +1,6 @@
 import { exportToCSV } from '../../utils/exportHelpers';
 
-export function ExportControls({ results, inputs }) {
+export function ExportControls({ results, inputs, compact }) {
   function handleCSV() {
     if (results && results.length > 0) {
       exportToCSV(results, inputs);
@@ -9,6 +9,19 @@ export function ExportControls({ results, inputs }) {
 
   function handlePDF() {
     window.print();
+  }
+
+  if (compact) {
+    return (
+      <>
+        <button className="top-bar-btn" onClick={handleCSV} title="Download CSV">
+          ↓ CSV
+        </button>
+        <button className="top-bar-btn" onClick={handlePDF} title="Print / Save as PDF">
+          ⎙ Print
+        </button>
+      </>
+    );
   }
 
   return (

@@ -8,6 +8,7 @@ export function InputPanel({ inputs, onUpdate }) {
   return (
     <div className="input-panel">
       <InputGroup
+        data-accent="blue"
         label="Loan Amount"
         tooltip={TOOLTIPS.loanAmount}
         value={formatCurrency(principal)}
@@ -23,6 +24,7 @@ export function InputPanel({ inputs, onUpdate }) {
       </InputGroup>
 
       <InputGroup
+        data-accent="green"
         label="Annual Revenue"
         tooltip={TOOLTIPS.annualRevenue}
         value={formatCurrency(annualRevenue)}
@@ -38,6 +40,7 @@ export function InputPanel({ inputs, onUpdate }) {
       </InputGroup>
 
       <InputGroup
+        data-accent="purple"
         label="Business Age"
         tooltip={TOOLTIPS.businessAge}
         value={`${businessAge} yr`}
@@ -54,6 +57,7 @@ export function InputPanel({ inputs, onUpdate }) {
       </InputGroup>
 
       <InputGroup
+        data-accent="amber"
         label="Credit Score"
         tooltip={TOOLTIPS.creditScore}
         value={creditScore}
@@ -73,9 +77,9 @@ export function InputPanel({ inputs, onUpdate }) {
   );
 }
 
-function InputGroup({ label, tooltip, value, sub, children }) {
+function InputGroup({ label, tooltip, value, sub, children, 'data-accent': accent }) {
   return (
-    <div className="input-group">
+    <div className="input-group" data-accent={accent}>
       <div className="input-label-row">
         <span className="input-label">
           {label}

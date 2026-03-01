@@ -1,34 +1,29 @@
 import { useSort } from '../../hooks/useSort';
 import { Tooltip } from '../shared/Tooltip';
 import { TOOLTIPS } from '../../data/tooltipContent';
+import { SPEED } from '../../data/speedData';
 import { formatCurrency, formatPercent, formatMonths } from '../../utils/formatters';
 
 const COLUMNS = [
-  { key: 'label',           label: 'Option',        sortable: false },
-  { key: 'totalCost',       label: 'Total Cost',     sortable: true,  tooltip: TOOLTIPS.totalCost },
-  { key: 'sac',             label: 'SAC',            sortable: true,  tooltip: TOOLTIPS.sac },
-  { key: 'vsCheapest',      label: 'VS Cheapest',    sortable: true,  tooltip: TOOLTIPS.vsCheapest },
-  { key: 'freeCashflowPct', label: '% Cashflow',     sortable: true,  tooltip: TOOLTIPS.freeCashflowPct },
-  { key: 'monthlyPayment',  label: 'Avg Monthly',    sortable: true,  tooltip: TOOLTIPS.avgMonthly },
-  { key: 'termMonths',      label: 'Term',           sortable: true },
+  { key: 'rank',            label: '#',           sortable: false },
+  { key: 'label',           label: 'Option',      sortable: false },
+  { key: 'totalCost',       label: 'Total Cost',  sortable: true,  tooltip: TOOLTIPS.totalCost },
+  { key: 'sac',             label: 'SAC',          sortable: true,  tooltip: TOOLTIPS.sac },
+  { key: 'monthlyPayment',  label: 'Monthly',      sortable: true,  tooltip: TOOLTIPS.avgMonthly },
+  { key: 'freeCashflowPct', label: 'FCF %',        sortable: true,  tooltip: TOOLTIPS.freeCashflowPct },
+  { key: 'termMonths',      label: 'Term',         sortable: true },
+  { key: 'speed',           label: 'Speed',        sortable: false },
+  { key: 'eligibility',     label: 'Elig.',        sortable: false },
 ];
 
-function sacClass(sac) {
-  if (sac < 15) return 'sac-low';
-  if (sac < 40) return 'sac-mid';
-  return 'sac-high';
+function sacCellClass(sac) {
+  if (sac < 15) return 'sac-cell sac-cell-low';
+  if (sac < 40) return 'sac-cell sac-cell-mid';
+  return 'sac-cell sac-cell-high';
 }
 
-function vsCheapestClass(val) {
-  if (val === 0) return 'vs-cheapest-zero';
-  if (val < 5000) return 'vs-cheapest-low';
-  return 'vs-cheapest-high';
-}
-
-function cashflowColor(pct) {
-  if (pct < 20) return 'var(--accent-green)';
-  if (pct < 40) return 'var(--accent-amber)';
-  return 'var(--accent-red)';
+function isHardBlocked(row) {
+  return row.eligibilityWarnings?.some((w) => /requires?/i.test(w));
 }
 
 export function ComparisonTable({ results }) {
@@ -39,9 +34,9 @@ export function ComparisonTable({ results }) {
   return (
     <div className="comparison-table-section">
       <div className="section-header">
-        <span className="section-title">Comparison</span>
-        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-          Click column headers to sort
+        <span className="section-title">All Options</span>
+        <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+          Click headers to sort
         </span>
       </div>
 
@@ -65,12 +60,19 @@ export function ComparisonTable({ results }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row) => (
-            <tr key={row.id} className={row.isCheapest ? 'row-best' : ''}>
-              {/* Option name */}
+          {sorted.map((row, idx) => (
+            <tr
+              key={`${row.id}-${Math.round(row.totalCost)}`}
+              className={row.isCheapest ? 'row-best' : ''}
+            >
+              {/* Rank */}
               <td>
+                <span className="option-rank">{idx + 1}</span>
+              </td>
+
+              {/* Option name */}
+              <td style={{ boxShadow: `inset 3px 0 0 ${row.color}` }}>
                 <div className="option-cell">
-                  <span className="option-dot" style={{ backgroundColor: row.color }} />
                   <span className="option-name">{row.label}</span>
                   {row.isCheapest && <span className="option-badge-best">Best</span>}
                 </div>
@@ -79,42 +81,47 @@ export function ComparisonTable({ results }) {
               {/* Total Cost */}
               <td>{formatCurrency(row.totalCost)}</td>
 
-              {/* SAC */}
+              {/* SAC — heat map cell */}
               <td>
-                <span className="sac-value">
+                <span className={sacCellClass(row.sac)}>
                   {formatPercent(row.sac)}
-                  <span className={`sac-pill ${sacClass(row.sac)}`}>
-                    {row.sac < 15 ? 'Low' : row.sac < 40 ? 'Mid' : 'High'}
-                  </span>
                 </span>
               </td>
 
-              {/* VS Cheapest */}
-              <td className={vsCheapestClass(row.vsCheapest)}>
-                {row.isCheapest ? '— cheapest' : `+${formatCurrency(row.vsCheapest)}`}
-              </td>
-
-              {/* % Cashflow */}
-              <td>
-                <div className="cashflow-cell">
-                  <div className="cashflow-bar-track">
-                    <div
-                      className="cashflow-bar-fill"
-                      style={{
-                        width: `${Math.min(row.freeCashflowPct, 100)}%`,
-                        backgroundColor: cashflowColor(row.freeCashflowPct),
-                      }}
-                    />
-                  </div>
-                  <span>{formatPercent(row.freeCashflowPct)}</span>
-                </div>
-              </td>
-
-              {/* Avg Monthly */}
+              {/* Monthly */}
               <td>{formatCurrency(row.monthlyPayment)}</td>
+
+              {/* FCF % */}
+              <td>{formatPercent(row.freeCashflowPct)}</td>
 
               {/* Term */}
               <td style={{ color: 'var(--text-secondary)' }}>{formatMonths(row.termMonths)}</td>
+
+              {/* Speed */}
+              <td>
+                <span className="speed-cell">{SPEED[row.id]?.label ?? '—'}</span>
+              </td>
+
+              {/* Eligibility */}
+              <td>
+                {isHardBlocked(row) ? (
+                  <span
+                    className="eligibility-warn"
+                    title={row.eligibilityWarnings?.join(', ')}
+                  >
+                    ⚠
+                  </span>
+                ) : row.eligibilityWarnings?.length ? (
+                  <span
+                    className="eligibility-warn"
+                    title={row.eligibilityWarnings.join(', ')}
+                  >
+                    ⚠
+                  </span>
+                ) : (
+                  <span className="eligibility-ok">✓</span>
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
