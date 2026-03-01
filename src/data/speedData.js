@@ -6,4 +6,5 @@ export const SPEED = {
   invoiceFactoring:   { label: '3–7 days',   tier: 'fast',   daysRange: [3, 7] },
   equipmentFinancing: { label: '1–2 weeks',  tier: 'medium', daysRange: [7, 14] },
   termLoan:           { label: '3–7 days',   tier: 'fast',   daysRange: [3, 7] },
+  revenueBased:       { label: '3–7 days',   tier: 'fast',   daysRange: [3, 7] },
 };

@@ -22,6 +22,8 @@ const DEFAULT_INPUTS = {
   annualRevenue: 500000,
   businessAge: 3,
   creditScore: 700,
+  loanPurpose: 'any',
+  industry: 'general',
 };
 
 // Initialise inputs from share URL params if present

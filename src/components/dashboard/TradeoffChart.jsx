@@ -282,12 +282,12 @@ export function TradeoffChart({ results, selectedProduct, onSelectProduct, activ
             dataKey="sac"
             type="number"
             name="SAC %"
-            unit="%"
-            domain={[yMin - yPad, yMax + yPad]}
+            domain={[Math.max(0, yMin - yPad), yMax + yPad]}
+            tickFormatter={(v) => `${v.toFixed(1)}%`}
             tick={{ fill: '#9ca3af', fontSize: 10, fontFamily: 'var(--font-mono)' }}
             axisLine={{ stroke: '#e5e7eb' }}
             tickLine={false}
-            width={42}
+            width={48}
           />
           <Tooltip content={<CustomTooltip />} cursor={false} />
 

@@ -62,6 +62,15 @@ export const FINANCING_TYPES = {
     cons: ['Origination fees (3%)', 'Collateral may be required', 'Prepayment penalties'],
     color: '#64748b',
   },
+  revenueBased: {
+    id: 'revenueBased',
+    label: 'Revenue-Based Financing',
+    shortLabel: 'RBF',
+    description: 'Repay a fixed multiple of the borrowed amount as a % of monthly revenue — no fixed payment.',
+    pros: ['No fixed monthly payment', 'Scales with cash flow', 'No equity dilution', 'Fast funding (3–7 days)'],
+    cons: ['Total cost fixed regardless of repayment speed', 'Requires consistent monthly revenue', 'Best for SaaS/subscription models'],
+    color: '#ec4899',
+  },
 };
 
 export const FINANCING_ORDER = [
@@ -72,4 +81,5 @@ export const FINANCING_ORDER = [
   'invoiceFactoring',
   'equipmentFinancing',
   'termLoan',
+  'revenueBased',
 ];

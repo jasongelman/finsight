@@ -174,7 +174,7 @@ section {
   color: var(--text-muted);
 }
 
-/* ─── Input panel — compact horizontal row ───────────────────────────────── */
+/* ─── Input panel — 2-row grid ───────────────────────────────────────────── */
 .input-panel {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -191,9 +191,77 @@ section {
   gap: 6px;
   padding: 10px 20px;
   border-right: 1px solid var(--border-default);
+  border-top: none;
 }
+/* Row 2 inputs get a top border */
+.input-group--row2 {
+  border-top: 1px solid var(--border-default);
+}
+/* Empty filler cells in row 2 */
+.input-group--empty {
+  border-top: 1px solid var(--border-default);
+  background: var(--bg-panel);
+}
+/* Last cell in each row has no right border */
+.input-group:nth-child(4),
 .input-group:last-child {
   border-right: none;
+}
+
+/* ─── Loan Purpose segmented toggle ─────────────────────────────────────── */
+.purpose-toggle {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+.purpose-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 10.5px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.purpose-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.purpose-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ─── Industry select ────────────────────────────────────────────────────── */
+.industry-select {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239ca3af'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+.industry-select:focus {
+  border-color: var(--accent);
+}
+.industry-select:hover {
+  border-color: var(--border-accent);
 }
 /* Remove old left-border accent system */
 .input-group[data-accent] {

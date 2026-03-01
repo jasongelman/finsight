@@ -16,4 +16,8 @@ export const TOOLTIPS = {
     'The amount of capital you need to borrow or advance. This is the principal figure used in all calculations.',
   annualRevenue:
     'Your annual business revenue. Used to estimate monthly free cashflow (assumed at 15% margin) and MCA repayment capacity.',
+  loanPurpose:
+    'The intended use of funds. Equipment financing requires an equipment purchase. Working capital covers operations, inventory, or payroll. Affects which products are appropriate.',
+  industry:
+    'Your business industry. SBA loans exclude certain industries (cannabis, gambling). Revenue-Based Financing works best for subscription or SaaS revenue models.',
 };

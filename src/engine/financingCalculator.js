@@ -81,17 +81,19 @@ function calcMCA(principal, factorRate, termMonths) {
 }
 
 function calcInvoiceFactoring(principal, monthlyFeeRate, termMonths) {
-  // Advance rate 85%; fee is % of invoice face value per month
-  const advancedAmount = principal * 0.85;
-  const totalFees = principal * (monthlyFeeRate / 100) * termMonths;
+  // Advance rate 85%; fee is % of invoice face value per month.
+  // True cost includes both the monthly fees AND the 15% haircut (discount the
+  // factor permanently keeps), making it comparable to other borrowing products.
+  const monthlyFees = principal * (monthlyFeeRate / 100) * termMonths;
+  const haircut = principal * 0.15; // 15% discount — never returned to borrower
+  const feeAmount = monthlyFees + haircut;
   const interestAmount = 0;
-  const feeAmount = totalFees;
-  const totalInterest = totalFees;
-  const monthlyPayment = totalFees / termMonths;
-  // SAC denominator = cash actually received (advance amount)
-  const sac = (totalFees / advancedAmount) * (12 / termMonths) * 100;
+  const totalInterest = feeAmount;
+  const totalCost = principal + totalInterest; // comparable to other products' total payback
+  const monthlyPayment = feeAmount / termMonths;
+  const sac = (feeAmount / principal) * (12 / termMonths) * 100;
   return {
-    totalCost: totalFees,
+    totalCost,
     totalInterest,
     interestAmount,
     feeAmount,
@@ -99,6 +101,23 @@ function calcInvoiceFactoring(principal, monthlyFeeRate, termMonths) {
     sac,
     termMonths,
   };
+}
+
+function calcRBF(principal, capRate, annualRevenue) {
+  // Repayment cap model: borrow $X, pay back $X × capRate total.
+  // Monthly payment ≈ 10% of monthly revenue (industry standard revenue share).
+  // Term = how many months until fully repaid at that payment rate (capped at 48 mo).
+  const totalCost = principal * capRate;
+  const feeAmount = totalCost - principal;
+  const monthlyRevenue = annualRevenue / 12;
+  const monthlyPayment = monthlyRevenue * 0.10;
+  const estimatedTerm = monthlyPayment > 0
+    ? Math.min(Math.ceil(totalCost / monthlyPayment), 48)
+    : 48;
+  const interestAmount = 0;
+  const totalInterest = feeAmount;
+  const sac = (feeAmount / principal) * (12 / estimatedTerm) * 100;
+  return { totalCost, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths: estimatedTerm };
 }
 
 function calcEquipmentFinancing(principal, apr, termMonths) {
@@ -154,13 +173,14 @@ export function buildBaseParams(liveRates) {
   const ccRate = liveRates?.creditCard?.value ?? 21.5;
 
   return {
-    creditCard:         { apr: ccRate,       termMonths: 18 },
-    sba:                { apr: prime + 2.5,  termMonths: 84 },
-    lineOfCredit:       { apr: prime + 4.5,  termMonths: 12 },
-    mca:                { factorRate: 1.35,  termMonths: 9 },
+    creditCard:         { apr: ccRate,        termMonths: 18 },
+    sba:                { apr: prime + 2.5,   termMonths: 84 },
+    lineOfCredit:       { apr: prime + 4.5,   termMonths: 12 },
+    mca:                { factorRate: 1.35,   termMonths: 9 },
     invoiceFactoring:   { monthlyFeeRate: 2.5, termMonths: 4 },
-    equipmentFinancing: { apr: prime + 1.5,  termMonths: 48 },
-    termLoan:           { apr: prime + 7.5,  termMonths: 36 },
+    equipmentFinancing: { apr: prime + 1.5,   termMonths: 48 },
+    termLoan:           { apr: prime + 7.5,   termMonths: 36 },
+    revenueBased:       { capRate: 1.30 },
   };
 }
 
@@ -176,29 +196,43 @@ function getParams(id, creditScore, businessAge, liveRates) {
 
 // ─── Eligibility hints ───────────────────────────────────────────────────────
 
-function getEligibility(id, { creditScore, businessAge, annualRevenue, principal }) {
+function getEligibility(id, { creditScore, businessAge, annualRevenue, principal, loanPurpose, industry }) {
   const warnings = [];
   if (id === 'sba') {
     if (businessAge < 2) warnings.push('SBA typically requires 2+ years in business');
     if (creditScore < 640) warnings.push('SBA usually requires 640+ credit score');
     if (principal > 5000000) warnings.push('SBA max loan is $5M');
+    if (industry === 'cannabis') warnings.push('SBA loans not available for cannabis/CBD businesses');
   }
   if (id === 'mca') {
-    if (annualRevenue < principal * 2) warnings.push('MCA lenders typically require 2× revenue vs advance');
+    if (annualRevenue < principal * 2) warnings.push('MCA lenders typically require 2× annual revenue vs advance');
     warnings.push('Very high effective APR — last resort financing');
   }
   if (id === 'invoiceFactoring') {
     if (annualRevenue < 50000) warnings.push('Factoring best for businesses with regular B2B invoices');
+    if (loanPurpose === 'equipment' || loanPurpose === 'realEstate') {
+      warnings.push('Invoice factoring is for converting existing receivables, not new purchases');
+    }
   }
   if (id === 'lineOfCredit' && creditScore < 600) {
     warnings.push('Low credit score may limit line of credit approval');
+  }
+  if (id === 'equipmentFinancing' && loanPurpose !== 'equipment' && loanPurpose !== 'any') {
+    warnings.push('Equipment financing requires an equipment purchase purpose');
+  }
+  if (id === 'revenueBased') {
+    if (annualRevenue < 200000) warnings.push('RBF lenders typically require $200K+ annual revenue');
+    if (creditScore < 550) warnings.push('Most RBF providers require 550+ credit score');
+    if (industry !== 'technology' && industry !== 'general') {
+      warnings.push('RBF works best for subscription or SaaS revenue models');
+    }
   }
   return warnings;
 }
 
 // ─── Master orchestrator ─────────────────────────────────────────────────────
 
-export function calculateAllOptions({ principal, annualRevenue, businessAge, creditScore }, liveRates = null) {
+export function calculateAllOptions({ principal, annualRevenue, businessAge, creditScore, loanPurpose = 'any', industry = 'general' }, liveRates = null) {
   const monthlyFreeCashflow = (annualRevenue * 0.15) / 12;
 
   const products = [
@@ -209,6 +243,7 @@ export function calculateAllOptions({ principal, annualRevenue, businessAge, cre
     'invoiceFactoring',
     'equipmentFinancing',
     'termLoan',
+    'revenueBased',
   ];
 
   const results = products.map((id) => {
@@ -236,6 +271,9 @@ export function calculateAllOptions({ principal, annualRevenue, businessAge, cre
       case 'termLoan':
         calc = calcTermLoan(principal, params.apr, params.termMonths);
         break;
+      case 'revenueBased':
+        calc = calcRBF(principal, params.capRate, annualRevenue);
+        break;
       default:
         calc = { totalCost: 0, totalInterest: 0, interestAmount: 0, feeAmount: 0, monthlyPayment: 0, sac: 0, termMonths: 12 };
     }
@@ -245,7 +283,7 @@ export function calculateAllOptions({ principal, annualRevenue, businessAge, cre
       ...calc,
       params,
       freeCashflowPct: monthlyFreeCashflow > 0 ? (calc.monthlyPayment / monthlyFreeCashflow) * 100 : 0,
-      eligibilityWarnings: getEligibility(id, { creditScore, businessAge, annualRevenue, principal }),
+      eligibilityWarnings: getEligibility(id, { creditScore, businessAge, annualRevenue, principal, loanPurpose, industry }),
     };
   });
 

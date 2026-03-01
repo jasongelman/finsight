@@ -2,11 +2,29 @@ import { Tooltip } from '../shared/Tooltip';
 import { TOOLTIPS } from '../../data/tooltipContent';
 import { formatCurrency, creditScoreLabel } from '../../utils/formatters';
 
+const LOAN_PURPOSE_OPTIONS = [
+  { value: 'any',           label: 'Any Purpose' },
+  { value: 'workingCapital', label: 'Working Capital' },
+  { value: 'equipment',     label: 'Equipment' },
+  { value: 'realEstate',    label: 'Real Estate' },
+];
+
+const INDUSTRY_OPTIONS = [
+  { value: 'general',      label: 'General / Retail' },
+  { value: 'foodBeverage', label: 'Food & Beverage' },
+  { value: 'healthcare',   label: 'Healthcare' },
+  { value: 'technology',   label: 'Technology / SaaS' },
+  { value: 'construction', label: 'Construction' },
+  { value: 'cannabis',     label: 'Cannabis / CBD' },
+];
+
 export function InputPanel({ inputs, onUpdate }) {
-  const { principal, annualRevenue, businessAge, creditScore } = inputs;
+  const { principal, annualRevenue, businessAge, creditScore, loanPurpose, industry } = inputs;
+  const monthlyRevenue = Math.round(annualRevenue / 12);
 
   return (
     <div className="input-panel">
+      {/* Row 1: sliders */}
       <InputGroup
         data-accent="blue"
         label="Loan Amount"
@@ -28,6 +46,7 @@ export function InputPanel({ inputs, onUpdate }) {
         label="Annual Revenue"
         tooltip={TOOLTIPS.annualRevenue}
         value={formatCurrency(annualRevenue)}
+        sub={`${formatCurrency(monthlyRevenue)}/mo`}
       >
         <input
           type="range"
@@ -73,19 +92,62 @@ export function InputPanel({ inputs, onUpdate }) {
         />
         <div className="credit-score-bar" />
       </InputGroup>
+
+      {/* Row 2: Loan Purpose + Industry */}
+      <InputGroup
+        data-accent="blue"
+        label="Loan Purpose"
+        tooltip={TOOLTIPS.loanPurpose}
+        value={null}
+        row2
+      >
+        <div className="purpose-toggle">
+          {LOAN_PURPOSE_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              className={`purpose-btn${loanPurpose === opt.value ? ' active' : ''}`}
+              onClick={() => onUpdate('loanPurpose', opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </InputGroup>
+
+      <InputGroup
+        data-accent="green"
+        label="Industry"
+        tooltip={TOOLTIPS.industry}
+        value={null}
+        row2
+      >
+        <select
+          className="industry-select"
+          value={industry}
+          onChange={(e) => onUpdate('industry', e.target.value)}
+        >
+          {INDUSTRY_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+      </InputGroup>
+
+      {/* Spacer cells to fill row 2 columns 3 and 4 */}
+      <div className="input-group input-group--empty" />
+      <div className="input-group input-group--empty" />
     </div>
   );
 }
 
-function InputGroup({ label, tooltip, value, sub, children, 'data-accent': accent }) {
+function InputGroup({ label, tooltip, value, sub, children, 'data-accent': accent, row2 }) {
   return (
-    <div className="input-group" data-accent={accent}>
+    <div className={`input-group${row2 ? ' input-group--row2' : ''}`} data-accent={accent}>
       <div className="input-label-row">
         <span className="input-label">
           {label}
           {tooltip && <Tooltip content={tooltip} />}
         </span>
-        <span className="input-value">{value}</span>
+        {value != null && <span className="input-value">{value}</span>}
       </div>
       {children}
       {sub && <span className="input-sub">{sub}</span>}

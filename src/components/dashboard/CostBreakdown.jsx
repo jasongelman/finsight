@@ -79,16 +79,14 @@ export function CostBreakdown({ results }) {
     return [...results]
       .sort((a, b) => a.totalCost - b.totalCost)
       .map((r) => {
-        // For Invoice Factoring, totalCost is just fees (no principal in output)
-        const isFactoring = r.id === 'invoiceFactoring';
-        const principal = isFactoring ? 0 : r.totalCost - (r.interestAmount || 0) - (r.feeAmount || 0);
+        const principal = r.totalCost - (r.interestAmount || 0) - (r.feeAmount || 0);
 
         return {
           id: r.id,
           label: r.label,
           shortLabel: r.shortLabel,
           color: r.color,
-          principal: isFactoring ? 0 : principal,
+          principal: Math.max(0, principal),
           interest: r.interestAmount || 0,
           fees: r.feeAmount || 0,
           total: r.totalCost,
