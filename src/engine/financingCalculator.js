@@ -9,14 +9,27 @@ function amortize(principal, apr, termMonths) {
   );
 }
 
+/**
+ * Reverse amortization: given a target monthly payment, APR, and term,
+ * returns the maximum principal that can be borrowed.
+ * P = pmt × [(1 − (1 + r)^−n) / r]
+ */
+export function reverseAmortize(monthlyPayment, apr, termMonths) {
+  const monthlyRate = apr / 100 / 12;
+  if (monthlyRate === 0) return monthlyPayment * termMonths;
+  return monthlyPayment * ((1 - Math.pow(1 + monthlyRate, -termMonths)) / monthlyRate);
+}
+
 // ─── Per-product calculation functions ───────────────────────────────────────
 
 function calcCreditCard(principal, apr, termMonths) {
   const monthlyPayment = amortize(principal, apr, termMonths);
   const totalCost = monthlyPayment * termMonths;
-  const totalInterest = totalCost - principal;
+  const interestAmount = totalCost - principal;
+  const feeAmount = 0;
+  const totalInterest = interestAmount + feeAmount;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
-  return { totalCost, totalInterest, monthlyPayment, sac, termMonths };
+  return { totalCost, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths };
 }
 
 function calcSBA(principal, apr, termMonths) {
@@ -28,10 +41,12 @@ function calcSBA(principal, apr, termMonths) {
   const guaranteeFee = guaranteedPortion * guaranteeFeeRate;
 
   const monthlyPayment = amortize(principal, apr, termMonths);
-  const totalInterest = monthlyPayment * termMonths - principal + guaranteeFee;
+  const interestAmount = monthlyPayment * termMonths - principal;
+  const feeAmount = guaranteeFee;
+  const totalInterest = interestAmount + feeAmount;
   const totalCost = principal + totalInterest;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
-  return { totalCost, totalInterest, monthlyPayment, sac, termMonths };
+  return { totalCost, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths };
 }
 
 function calcLineOfCredit(principal, apr, termMonths) {
@@ -39,13 +54,16 @@ function calcLineOfCredit(principal, apr, termMonths) {
   const monthlyRate = apr / 100 / 12;
   const monthlyInterest = principal * monthlyRate;
   const annualFee = principal * 0.0075;
-  const totalFees = annualFee * (termMonths / 12);
-  const totalInterest = monthlyInterest * termMonths + totalFees;
+  const feeAmount = annualFee * (termMonths / 12);
+  const interestAmount = monthlyInterest * termMonths;
+  const totalInterest = interestAmount + feeAmount;
   const totalCost = principal + totalInterest;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
   return {
     totalCost,
     totalInterest,
+    interestAmount,
+    feeAmount,
     monthlyPayment: monthlyInterest + annualFee / 12,
     sac,
     termMonths,
@@ -54,22 +72,29 @@ function calcLineOfCredit(principal, apr, termMonths) {
 
 function calcMCA(principal, factorRate, termMonths) {
   const payback = principal * factorRate;
-  const totalInterest = payback - principal;
+  const interestAmount = 0; // MCA doesn't charge "interest" — it's a factor fee
+  const feeAmount = payback - principal;
+  const totalInterest = feeAmount;
   const monthlyPayment = payback / termMonths;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
-  return { totalCost: payback, totalInterest, monthlyPayment, sac, termMonths };
+  return { totalCost: payback, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths };
 }
 
 function calcInvoiceFactoring(principal, monthlyFeeRate, termMonths) {
   // Advance rate 85%; fee is % of invoice face value per month
   const advancedAmount = principal * 0.85;
   const totalFees = principal * (monthlyFeeRate / 100) * termMonths;
+  const interestAmount = 0;
+  const feeAmount = totalFees;
+  const totalInterest = totalFees;
   const monthlyPayment = totalFees / termMonths;
   // SAC denominator = cash actually received (advance amount)
   const sac = (totalFees / advancedAmount) * (12 / termMonths) * 100;
   return {
     totalCost: totalFees,
-    totalInterest: totalFees,
+    totalInterest,
+    interestAmount,
+    feeAmount,
     monthlyPayment,
     sac,
     termMonths,
@@ -79,19 +104,23 @@ function calcInvoiceFactoring(principal, monthlyFeeRate, termMonths) {
 function calcEquipmentFinancing(principal, apr, termMonths) {
   const monthlyPayment = amortize(principal, apr, termMonths);
   const totalCost = monthlyPayment * termMonths;
-  const totalInterest = totalCost - principal;
+  const interestAmount = totalCost - principal;
+  const feeAmount = 0;
+  const totalInterest = interestAmount + feeAmount;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
-  return { totalCost, totalInterest, monthlyPayment, sac, termMonths };
+  return { totalCost, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths };
 }
 
 function calcTermLoan(principal, apr, termMonths) {
   // 3% origination fee
   const originationFee = principal * 0.03;
   const monthlyPayment = amortize(principal, apr, termMonths);
-  const totalInterest = monthlyPayment * termMonths - principal + originationFee;
+  const interestAmount = monthlyPayment * termMonths - principal;
+  const feeAmount = originationFee;
+  const totalInterest = interestAmount + feeAmount;
   const totalCost = principal + totalInterest;
   const sac = (totalInterest / principal) * (12 / termMonths) * 100;
-  return { totalCost, totalInterest, monthlyPayment, sac, termMonths };
+  return { totalCost, totalInterest, interestAmount, feeAmount, monthlyPayment, sac, termMonths };
 }
 
 // ─── Credit score & age → rate adjustment ────────────────────────────────────
@@ -120,7 +149,7 @@ function creditMultiplier(creditScore) {
  * MCA factor rates and invoice factoring fees are not tracked by federal
  * surveys; they use static industry estimates.
  */
-function buildBaseParams(liveRates) {
+export function buildBaseParams(liveRates) {
   const prime = liveRates?.prime?.value ?? 7.5;
   const ccRate = liveRates?.creditCard?.value ?? 21.5;
 
@@ -208,7 +237,7 @@ export function calculateAllOptions({ principal, annualRevenue, businessAge, cre
         calc = calcTermLoan(principal, params.apr, params.termMonths);
         break;
       default:
-        calc = { totalCost: 0, totalInterest: 0, monthlyPayment: 0, sac: 0, termMonths: 12 };
+        calc = { totalCost: 0, totalInterest: 0, interestAmount: 0, feeAmount: 0, monthlyPayment: 0, sac: 0, termMonths: 12 };
     }
 
     return {

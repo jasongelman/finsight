@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { SPEED } from '../../data/speedData';
 import { formatCurrency, formatPercent } from '../../utils/formatters';
 
-export function SummaryBar({ results }) {
+export function SummaryBar({ results, selectedProduct }) {
   const summary = useMemo(() => {
     if (!results || results.length === 0) return null;
 
@@ -16,35 +16,54 @@ export function SummaryBar({ results }) {
     const min = Math.min(...costs);
     const max = Math.max(...costs);
 
-    return { best, min, max };
+    // Savings callout: difference between worst and best eligible
+    const worst = [...pool].sort((a, b) => b.totalCost - a.totalCost)[0];
+    const savings = worst && best ? worst.totalCost - best.totalCost : 0;
+
+    return { best, min, max, savings, worst };
   }, [results]);
+
+  // If a product is selected, show that instead of "best"
+  const selected = useMemo(() => {
+    if (!selectedProduct || !results) return null;
+    return results.find((r) => r.id === selectedProduct) || null;
+  }, [selectedProduct, results]);
 
   if (!summary) return null;
 
-  const { best, min, max } = summary;
-  const speed = SPEED[best.id]?.label;
+  const display = selected || summary.best;
+  const speed = SPEED[display.id]?.label;
+  const isSelected = !!selected;
 
   return (
-    <div className="summary-bar">
-      <span className="summary-star">★</span>
-      <span className="summary-best-label">Best:</span>
-      <span className="summary-dot" style={{ backgroundColor: best.color }} />
-      <span className="summary-best-label">{best.label}</span>
+    <div className={`summary-bar${isSelected ? ' summary-bar--selected' : ''}`}>
+      <span className="summary-star">{isSelected ? '◉' : '★'}</span>
+      <span className="summary-best-label">{isSelected ? 'Selected:' : 'Best:'}</span>
+      <span className="summary-dot" style={{ backgroundColor: display.color }} />
+      <span className="summary-best-label">{display.label}</span>
       <span className="summary-sep">·</span>
-      <span className="summary-detail">{formatCurrency(best.totalCost)} total</span>
+      <span className="summary-detail">{formatCurrency(display.totalCost)} total</span>
       <span className="summary-sep">·</span>
-      <span className="summary-detail">{formatPercent(best.sac)} SAC</span>
+      <span className="summary-detail">{formatPercent(display.sac)} SAC</span>
       <span className="summary-sep">·</span>
-      <span className="summary-detail">{formatCurrency(best.monthlyPayment)}/mo</span>
+      <span className="summary-detail">{formatCurrency(display.monthlyPayment)}/mo</span>
       {speed && (
         <>
           <span className="summary-sep">·</span>
           <span className="summary-detail">{speed}</span>
         </>
       )}
-      <span className="summary-spread">
-        Spread: {formatCurrency(min)} – {formatCurrency(max)}
-      </span>
+
+      {/* Savings callout or spread */}
+      {!isSelected && summary.savings > 0 ? (
+        <span className="summary-spread">
+          Save {formatCurrency(summary.savings)} vs {summary.worst.shortLabel}
+        </span>
+      ) : (
+        <span className="summary-spread">
+          Spread: {formatCurrency(summary.min)} – {formatCurrency(summary.max)}
+        </span>
+      )}
     </div>
   );
 }

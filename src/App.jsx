@@ -1,14 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { TopBar } from './components/layout/TopBar';
 import { InputPanel } from './components/inputs/InputPanel';
 import { SummaryBar } from './components/dashboard/SummaryBar';
+import { FilterBar, matchesFilter } from './components/dashboard/FilterBar';
 import { TradeoffChart } from './components/dashboard/TradeoffChart';
 import { ComparisonTable } from './components/dashboard/ComparisonTable';
+import { CostBreakdown } from './components/dashboard/CostBreakdown';
+import { AffordabilityTool } from './components/dashboard/AffordabilityTool';
 import { ScenarioAnalysis } from './components/dashboard/ScenarioAnalysis';
+import { SensitivityChart } from './components/dashboard/SensitivityChart';
+import { FundingTimeline } from './components/dashboard/FundingTimeline';
 import { GlossaryView } from './components/dashboard/GlossaryView';
+import { MethodologyPanel } from './components/dashboard/MethodologyPanel';
 import { useFinancingResults } from './hooks/useFinancingResults';
 import { useLiveRates } from './hooks/useLiveRates';
+import { parseShareParams } from './utils/exportHelpers';
 
 const DEFAULT_INPUTS = {
   principal: 100000,
@@ -17,8 +24,13 @@ const DEFAULT_INPUTS = {
   creditScore: 700,
 };
 
+// Initialise inputs from share URL params if present
+const INITIAL_INPUTS = parseShareParams() ?? DEFAULT_INPUTS;
+
 export default function App() {
-  const [inputs, setInputs] = useState(DEFAULT_INPUTS);
+  const [inputs, setInputs] = useState(INITIAL_INPUTS);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('all');
 
   const { rates, status: ratesStatus } = useLiveRates();
 
@@ -26,7 +38,16 @@ export default function App() {
     setInputs((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const results = useFinancingResults(inputs, rates);
+  const rawResults = useFinancingResults(inputs, rates);
+
+  // Tag results with _matchesFilter for dimming
+  const results = useMemo(() => {
+    if (!rawResults) return rawResults;
+    return rawResults.map((r) => ({
+      ...r,
+      _matchesFilter: activeFilter === 'all' ? true : matchesFilter(r, activeFilter, rawResults),
+    }));
+  }, [rawResults, activeFilter]);
 
   return (
     <AppShell>
@@ -42,10 +63,24 @@ export default function App() {
       <main className="main-content">
         {/* ── Compare ── */}
         <section id="compare">
-          <SummaryBar results={results} />
+          <SummaryBar results={results} selectedProduct={selectedProduct} />
+          <FilterBar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
           <div className="compare-grid">
-            <TradeoffChart results={results} />
-            <ComparisonTable results={results} />
+            <TradeoffChart
+              results={results}
+              selectedProduct={selectedProduct}
+              onSelectProduct={setSelectedProduct}
+              activeFilters={activeFilter !== 'all' ? [activeFilter] : []}
+            />
+            <ComparisonTable
+              results={results}
+              selectedProduct={selectedProduct}
+              onSelectProduct={setSelectedProduct}
+            />
+          </div>
+          <div className="compare-bottom-grid">
+            <CostBreakdown results={results} />
+            <AffordabilityTool liveRates={rates} />
           </div>
         </section>
 
@@ -57,12 +92,17 @@ export default function App() {
             baseResults={results}
             liveRates={rates}
           />
+          <div className="optimize-bottom-grid">
+            <SensitivityChart inputs={inputs} liveRates={rates} />
+            <FundingTimeline results={results} />
+          </div>
         </section>
 
         {/* ── Learn ── */}
         <div className="section-divider">Learn</div>
         <section id="learn">
-          <GlossaryView />
+          <GlossaryView results={results} inputs={inputs} />
+          <MethodologyPanel />
         </section>
       </main>
     </AppShell>

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSort } from '../../hooks/useSort';
 import { Tooltip } from '../shared/Tooltip';
 import { TOOLTIPS } from '../../data/tooltipContent';
@@ -26,10 +27,16 @@ function isHardBlocked(row) {
   return row.eligibilityWarnings?.some((w) => /requires?/i.test(w));
 }
 
-export function ComparisonTable({ results }) {
+export function ComparisonTable({ results, selectedProduct, onSelectProduct }) {
   const { sorted, sortKey, sortDir, onSort } = useSort(results, 'totalCost', 'asc');
+  const [popoverId, setPopoverId] = useState(null);
 
   if (!sorted || sorted.length === 0) return null;
+
+  function togglePopover(id, e) {
+    e.stopPropagation();
+    setPopoverId(popoverId === id ? null : id);
+  }
 
   return (
     <div className="comparison-table-section">
@@ -60,70 +67,87 @@ export function ComparisonTable({ results }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, idx) => (
-            <tr
-              key={`${row.id}-${Math.round(row.totalCost)}`}
-              className={row.isCheapest ? 'row-best' : ''}
-            >
-              {/* Rank */}
-              <td>
-                <span className="option-rank">{idx + 1}</span>
-              </td>
+          {sorted.map((row, idx) => {
+            const isSelected = selectedProduct === row.id;
+            const isDimmed = row._matchesFilter === false;
 
-              {/* Option name */}
-              <td style={{ boxShadow: `inset 3px 0 0 ${row.color}` }}>
-                <div className="option-cell">
-                  <span className="option-name">{row.label}</span>
-                  {row.isCheapest && <span className="option-badge-best">Best</span>}
-                </div>
-              </td>
+            return (
+              <tr
+                key={`${row.id}-${Math.round(row.totalCost)}`}
+                className={
+                  (row.isCheapest ? 'row-best ' : '') +
+                  (isSelected ? 'row-selected ' : '') +
+                  (isDimmed ? 'row-dimmed ' : '')
+                }
+                onClick={() => onSelectProduct?.(isSelected ? null : row.id)}
+                style={{ cursor: onSelectProduct ? 'pointer' : undefined }}
+              >
+                {/* Rank */}
+                <td>
+                  <span className="option-rank">{idx + 1}</span>
+                </td>
 
-              {/* Total Cost */}
-              <td>{formatCurrency(row.totalCost)}</td>
+                {/* Option name */}
+                <td style={{ boxShadow: `inset 3px 0 0 ${isDimmed ? '#d1d5db' : row.color}` }}>
+                  <div className="option-cell">
+                    <span className="option-name">{row.label}</span>
+                    {row.isCheapest && <span className="option-badge-best">Best</span>}
+                  </div>
+                </td>
 
-              {/* SAC — heat map cell */}
-              <td>
-                <span className={sacCellClass(row.sac)}>
-                  {formatPercent(row.sac)}
-                </span>
-              </td>
+                {/* Total Cost */}
+                <td>{formatCurrency(row.totalCost)}</td>
 
-              {/* Monthly */}
-              <td>{formatCurrency(row.monthlyPayment)}</td>
-
-              {/* FCF % */}
-              <td>{formatPercent(row.freeCashflowPct)}</td>
-
-              {/* Term */}
-              <td style={{ color: 'var(--text-secondary)' }}>{formatMonths(row.termMonths)}</td>
-
-              {/* Speed */}
-              <td>
-                <span className="speed-cell">{SPEED[row.id]?.label ?? '—'}</span>
-              </td>
-
-              {/* Eligibility */}
-              <td>
-                {isHardBlocked(row) ? (
-                  <span
-                    className="eligibility-warn"
-                    title={row.eligibilityWarnings?.join(', ')}
-                  >
-                    ⚠
+                {/* SAC — heat map cell */}
+                <td>
+                  <span className={sacCellClass(row.sac)}>
+                    {formatPercent(row.sac)}
                   </span>
-                ) : row.eligibilityWarnings?.length ? (
-                  <span
-                    className="eligibility-warn"
-                    title={row.eligibilityWarnings.join(', ')}
-                  >
-                    ⚠
-                  </span>
-                ) : (
-                  <span className="eligibility-ok">✓</span>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+
+                {/* Monthly */}
+                <td>{formatCurrency(row.monthlyPayment)}</td>
+
+                {/* FCF % */}
+                <td>{formatPercent(row.freeCashflowPct)}</td>
+
+                {/* Term */}
+                <td style={{ color: 'var(--text-secondary)' }}>{formatMonths(row.termMonths)}</td>
+
+                {/* Speed */}
+                <td>
+                  <span className="speed-cell">{SPEED[row.id]?.label ?? '—'}</span>
+                </td>
+
+                {/* Eligibility — with popover */}
+                <td style={{ position: 'relative' }}>
+                  {row.eligibilityWarnings?.length ? (
+                    <>
+                      <button
+                        className={`eligibility-btn ${isHardBlocked(row) ? 'eligibility-warn' : 'eligibility-warn'}`}
+                        onClick={(e) => togglePopover(row.id, e)}
+                        title="Click to see details"
+                      >
+                        ⚠
+                      </button>
+                      {popoverId === row.id && (
+                        <div className="eligibility-popover">
+                          <div className="eligibility-popover-title">Eligibility Warnings</div>
+                          <ul className="eligibility-popover-list">
+                            {row.eligibilityWarnings.map((w, i) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="eligibility-ok">✓</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
